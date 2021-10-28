@@ -25,10 +25,6 @@ public class Server extends JFrame {
 	ArrayList<User> clientList = new ArrayList<User>();
 	//List of online user names
 	ArrayList<String> usernamelist = new ArrayList<String>();
-	//Information display box
-	private JTextArea jta = new JTextArea();
-	//Used to kick out the input field of the user name
-	private JTextField kick_username_input = new JTextField();
 	//Kick out the user name
 	private String username_kick = null;
 	//User object, which has two variables socket and username
@@ -37,6 +33,7 @@ public class Server extends JFrame {
 	DataOutputStream output = null;
 	//Declare an input stream
 	DataInputStream input = null;
+	private ServerGUI window;
 
 	public static void main(String[] args) {
 		new Server();
@@ -48,38 +45,16 @@ public class Server extends JFrame {
 	 * listening socket connection
 	 */
 	public Server() {
-		//Set the information display box layout
-		setLayout(new BorderLayout());
-		add(new JScrollPane(jta), BorderLayout.CENTER);
-		jta.setEditable(false);
-		jta.setFont(new Font("", 0, 18));
-
-		//Set input box
-		kick_username_input.setFont(new Font("", 0, 17));
-
-		final JPanel p = new JPanel();
-		p.setLayout(new BorderLayout());
-		JLabel jLabel = new JLabel("Enter the user you want to kick，press ENTER.");
-		jLabel.setFont(new Font("", 0, 15));
-		p.add(jLabel, BorderLayout.WEST);
-		p.add(kick_username_input, BorderLayout.CENTER);
-		kick_username_input.setHorizontalAlignment(JTextField.LEFT);
-		add(p, BorderLayout.SOUTH);
-
-		kick_username_input.addActionListener(new ButtonListener());
-
-		setTitle("Server");
-		setSize(700, 400);
-		setLocation(200, 300);
-		setVisible(true); //
+		
+		window = new ServerGUI(this);
+		window.frame.setVisible(true);
 
 		try {
 			//Create a server socket, bind port 8000
 			ServerSocket serverSocket = new ServerSocket(8080);
-			
 			//Print startup time
-			jta.append("Server startup time: " + new Date() + "\n\n");
-
+			window.addContent("Server: Startup time --> " + new Date() + "\n\n");
+			
 			//Infinite loop listens for new client connections
 			while (true) {
 
@@ -88,16 +63,15 @@ public class Server extends JFrame {
 
 				//When there is client connected
 				if (socket != null) {
-
 					//get user info
 					input = new DataInputStream(socket.getInputStream());
 					String json = input.readUTF();
 					JSONObject data = JSONObject.fromObject(json.toString());
-					jta.append("Client: " + data.getString("username") + " at:" + new Date() + " login");
+					window.addContent("Client: " + data.getString("username") + " at:" + new Date() + " login");
 
 					//Display user IP
 					InetAddress inetAddress = socket.getInetAddress();
-					jta.append(", IP address is：" + inetAddress.getHostAddress() + "\n\n");
+					window.addContent(", IP address is：" + inetAddress.getHostAddress() + "\n\n");
 
 					//Create a new user object, set socket, user name
 					user = new User();
@@ -106,9 +80,12 @@ public class Server extends JFrame {
 
 					//Join the list of online user groups
 					clientList.add(user);
-
 					//Add user name list (users are displayed in the client user list)
 					usernamelist.add(data.getString("username"));
+					
+					
+					// 将服务器在线用户列表更新
+					window.updateUserlist(clientList, usernamelist);
 				}
 
 				//When users are prompted to go online, package the data into JSON format
@@ -173,26 +150,6 @@ public class Server extends JFrame {
 								offLine(i);
 							}
 						}
-					}else if(data.getString("msg").equals("ask_STATS")) {
-						//STATS
-						for(int i=0; i<clientList.size(); i++) {
-							if(clientList.get(i).getUserName().equals(data.getString("username_to"))) {	
-								//转发
-								JSONObject stats_msg = new JSONObject();
-								stats_msg.put("username_to", data.get("username_to"));
-								stats_msg.put("msg", "ask_STATS");
-								stats_msg.put("time", data.get("time"));
-								stats_msg.put("username_from", data.get("username_from"));
-								//找到被查看的客户端,发送查询指令
-								try {
-									User user = clientList.get(i);
-									output = new DataOutputStream(user.getSocket().getOutputStream());
-									output.writeUTF(stats_msg.toString());
-								} catch (IOException ex1) {
-									System.out.println("STATS error: " + ex1.getMessage());
-								}
-							}
-						}
 					}else {
 						// marks for private chat
 						boolean isPrivate = false;
@@ -234,7 +191,7 @@ public class Server extends JFrame {
 			}
 		}
 
-		//The chat information and user list are packaged into JSON format and sent to a client
+		// The chat information and user list are packaged into JSON format and sent to a client
 		public void packMsg(JSONObject data, int i, String msg) {
 			//packing data 
 			JSONObject chatMessage = new JSONObject();
@@ -262,7 +219,8 @@ public class Server extends JFrame {
 			//Removed from the list
 			clientList.remove(i);
 			usernamelist.remove(outuser.getUserName());
-
+			// 将服务器在线用户列表更新
+			window.updateUserlist(clientList, usernamelist);
 			//Package the outgoing message that goes offline
 			JSONObject out = new JSONObject();
 			out.put("userlist", usernamelist);
@@ -282,82 +240,28 @@ public class Server extends JFrame {
 	
 
 	/**
-	 * Monitor input box
-	 * 	The server goes offline (STOP)
-	 * 	Kicks out the specified user
+	 * 	The server goes offline
 	 */
-	private class ButtonListener implements ActionListener {
-		
-		public void actionPerformed(ActionEvent e) {
-			try {
-				//Get UserName
-				username_kick = kick_username_input.getText().trim();
-
-				boolean isUsernameOut = false;
-				if (username_kick != null) {
-					//Server offline
-					if(username_kick.equals("STOP")) {
-							// 打包被踢出的发送消息
-							JSONObject out = new JSONObject();
-							out.put("userlist", usernamelist);
-							out.put("msg", "The server has been stop\n");
-	
-							//Loop the UserList to notify each client server that it is quitting
-							for (int j = 0; j < clientList.size(); j++) {
-								try {
-									User user = clientList.get(j);
-									output = new DataOutputStream(user.getSocket().getOutputStream());
-									output.writeUTF(out.toString());
-								} catch (IOException ex1) {
-								}
-							}
-							//Force the server program to shut down through the system
-							System.exit(EXIT_ON_CLOSE);
-							return;
-					}else {
-						//kick User
-						for (int i = 0; i < clientList.size(); i++) {
-							if (clientList.get(i).getUserName().equals(username_kick)) {
-								
-								//Get the user's information
-								User kick_user = clientList.get(i);
-	
-								usernamelist.remove(kick_user.getUserName());
-								
-								//Package the send message that is kicked out
-								JSONObject out = new JSONObject();
-								out.put("userlist", usernamelist);
-								out.put("msg", kick_user.getUserName() + " been kicked out\n");
-	
-								//Prompt each user that a user has been kicked out
-								for (int j = 0; j < clientList.size(); j++) {
-									try {
-										User user = clientList.get(j);
-										output = new DataOutputStream(user.getSocket().getOutputStream());
-										output.writeUTF(out.toString());
-									} catch (IOException ex1) {
-									}
-								}
-	
-								//Removed from the list
-								clientList.remove(i);
-	
-								isUsernameOut = true;
-								break;
-							}
-	
-						}
-						//User not found
-						if (isUsernameOut == false) {
-							jta.append("Not found user: " + username_kick + "\n");
-						}
-					}
-	
-					kick_username_input.setText("");
+	public void DisconnectServer() {
+		try {
+			window.addContent("Server: Offline time --> " + new Date() + "\n\n");
+			// 打包被踢出的发送消息
+			JSONObject out = new JSONObject();
+			out.put("userlist", usernamelist);
+			out.put("msg", "The server has been stop\n");
+			
+			//Loop the UserList to notify each client server that it is quitting
+			for (int j = 0; j < clientList.size(); j++) {
+				try {
+					User user = clientList.get(j);
+					output = new DataOutputStream(user.getSocket().getOutputStream());
+					output.writeUTF(out.toString());
+				} catch (IOException ex1) {
 				}
-			} catch (Exception ex) {
-				System.err.println(ex);
 			}
+		} catch (Exception ex) {
+			System.err.println(ex);
 		}
 	}
+
 }
