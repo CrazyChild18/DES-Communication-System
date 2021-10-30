@@ -8,6 +8,10 @@ import javax.swing.SwingConstants;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 
 import javax.swing.JPanel;
@@ -15,13 +19,20 @@ import java.awt.BorderLayout;
 import javax.swing.JMenuBar;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import java.awt.Color;
 import javax.swing.border.LineBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+
+import org.apache.commons.codec.binary.Base64;
+
 import javax.swing.JList;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 
 public class ClientGUI {
 
@@ -32,21 +43,13 @@ public class ClientGUI {
 	private JTextArea content;
 	private Client client;
 	private JList<String> userlist;
-	/**
-	 * Launch the application.
-	 */
-//	public static void main(String[] args) {
-//		EventQueue.invokeLater(new Runnable() {
-//			public void run() {
-//				try {
-//					ClientGUI window = new ClientGUI();
-//					window.frmCommunicationSystem.setVisible(true);
-//				} catch (Exception e) {
-//					e.printStackTrace();
-//				}
-//			}
-//		});
-//	}
+	private JLabel send_to;
+	private JButton broadcast_button;
+	
+	private boolean isPrivate = false;
+	private String privateName;
+	private JFileChooser fileDialog; // 文件对话框
+
 
 	/**
 	 * Create the application.
@@ -76,6 +79,36 @@ public class ClientGUI {
 		
 		JMenuItem pic_item = new JMenuItem("Picture transmission");
 		mnNewMenu.add(pic_item);
+		fileDialog = new JFileChooser();
+		pic_item.addActionListener(new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				int state = fileDialog.showOpenDialog(null);
+				if (state == JFileChooser.APPROVE_OPTION) {
+					// 打开文件
+					try {
+						File dir = fileDialog.getCurrentDirectory();
+		                String name = fileDialog.getSelectedFile().getName();
+		                File file = new File(dir, name);
+		                FileInputStream in;
+						in = new FileInputStream(file);
+						byte[] buff = new byte[in.available()];
+		                in.read(buff);
+		                in.close();
+		                String codeString = Base64.encodeBase64String(buff);
+		                System.out.println("Read content: " + codeString);
+		                if(isPrivate == false) {
+							client.sendBroadcastFile(codeString, name);
+						}else {
+							client.sendPrivateMessage(codeString, privateName);
+						}
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+				}
+			}
+		});
 		
 		JMenuItem TXT_item = new JMenuItem("TXT transmission");
 		mnNewMenu.add(TXT_item);
@@ -83,7 +116,7 @@ public class ClientGUI {
 		JMenu mnNewMenu_1 = new JMenu("Exit Room");
 		menuBar.add(mnNewMenu_1);
 		
-		JMenuItem exit_item = new JMenuItem("Exit");
+		JMenuItem exit_item = new JMenuItem("Disconnect");
 		mnNewMenu_1.add(exit_item);
 		
 		JMenu mnNewMenu_2 = new JMenu("About");
@@ -113,10 +146,15 @@ public class ClientGUI {
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				// TODO Auto-generated method stub
-				System.out.println("12312313123131231231231213");
 				String msg = text_input.getText().trim();
-				client.sendMessage(msg);
+				// 判断群聊还是私聊
+				// 调用不同发送函数
+				if(isPrivate == false) {
+					client.sendBroadcastMessage(msg);
+				}else {
+					client.sendPrivateMessage(msg, privateName);
+				}
+				text_input.setText("");
 			}
 		});
 		
@@ -142,6 +180,13 @@ public class ClientGUI {
 		userlist = new JList<String>();
 		userlist.setFont(new Font("Times New Roman", Font.BOLD, 30));
 		panel_3.add(userlist);
+		userlist.addListSelectionListener(new ListSelectionListener() {
+			// 添加对list中item的点击事件，以此实现私聊
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				getPrivateChatUsername();
+			}
+		});
 		
 		JPanel panel_2 = new JPanel();
 		panel_2.setBorder(null);
@@ -184,8 +229,29 @@ public class ClientGUI {
 		content.setEditable(false);
 		content.setFont(new Font("Times New Roman", Font.PLAIN, 25));
 		content.setBackground(new Color(204, 204, 204));
-		content.setBounds(277, 77, 809, 526);
+		content.setBounds(277, 77, 809, 475);
 		frmCommunicationSystem.getContentPane().add(content);
+		
+		send_to = new JLabel("Currently in Broadcast");
+		send_to.setForeground(new Color(255, 0, 0));
+		send_to.setFont(new Font("Times New Roman", Font.BOLD | Font.ITALIC, 17));
+		send_to.setHorizontalAlignment(SwingConstants.CENTER);
+		send_to.setBounds(277, 555, 809, 50);
+		frmCommunicationSystem.getContentPane().add(send_to);
+		
+		broadcast_button = new JButton("SEND TO ALL");
+		broadcast_button.setFont(new Font("Times New Roman", Font.BOLD, 12));
+		broadcast_button.setBounds(955, 562, 121, 33);
+		frmCommunicationSystem.getContentPane().add(broadcast_button);
+		broadcast_button.addActionListener(new ActionListener() {
+			// 转为所有人聊天
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// TODO Auto-generated method stub
+				send_to.setText("Currently in Broadcast");
+			}
+		});
+		
 	}
 	
 	public void setContent(String text) {
@@ -203,4 +269,10 @@ public class ClientGUI {
 		userlist.setModel(model);
 	}
 
+	// 点击用户列表执行函数
+	public void getPrivateChatUsername() {
+		send_to.setText("Currently in Private. The receiver is: " + userlist.getSelectedValue());
+		isPrivate = true;
+		privateName = userlist.getSelectedValue();
+	}
 }

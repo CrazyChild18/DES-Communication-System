@@ -67,7 +67,7 @@ public class Server extends JFrame {
 					input = new DataInputStream(socket.getInputStream());
 					String json = input.readUTF();
 					JSONObject data = JSONObject.fromObject(json.toString());
-					window.addContent("Client: " + data.getString("username") + " at:" + new Date() + " login");
+					window.addContent("Client online: " + data.getString("username") + " at:" + new Date());
 
 					//Display user IP
 					InetAddress inetAddress = socket.getInetAddress();
@@ -148,40 +148,57 @@ public class Server extends JFrame {
 						for(int i = 0; i < clientList.size(); i++) {
 							if (clientList.get(i).getUserName().equals(data.getString("username"))) {
 								offLine(i);
+								window.addContent("Client offline: " + data.getString("username") + " at:" + new Date());
 							}
 						}
 					}else {
-						// marks for private chat
 						boolean isPrivate = false;
 
 						// Private chat, the acquired data forward to the designated user
 						for (int i = 0; i < clientList.size(); i++) {
-							//Find a private chat user by comparing user names
+							// 找到私聊对象
 							if (clientList.get(i).getUserName().equals(data.getString("isPrivChat"))) {
-
-								//Handling chat content
-								String msg = data.getString("username") + " send to you," + 
-										data.getString("time") + ":\n"+ data.getString("msg");
-
-								//Packages the message into JSON format and sends the data to the specified client
-								packMsg(data, i, msg);
-								i++;
-
-								//Mark the private chat to end the message sending process
-								isPrivate = true;
-								break;
+								// 判断为文本消息还是文件消息
+								if (data.getString("messageType").equals("message")) {
+									// 编辑文本内容
+									String msg = data.getString("username") + " private send to you:\n" + 
+											"(" + data.getString("time") + ") "+ data.getString("msg") + "\n\n";
+									// 打包消息内容并发送到指定客户端
+									packMsg(i, msg, "");
+									i++;
+									// 以此跳过群发检测
+									isPrivate = true;
+									break;
+								}else if(data.getString("messageType").equals("file")) {
+									// 编辑文件检测信息
+									String msg = "Send file request detection to the user...";
+									String fileContent = data.getString("msg");
+									// 打包消息内容并发送到指定客户端
+									packMsg(i, msg, fileContent);
+									i++;
+									// 以此跳过群发检测
+									isPrivate = true;
+									break;
+								}
 							}
 						}
-
 						//group chat
 						//Forward the acquired data to each user
 						if (isPrivate == false) {
 							for (int i = 0; i < clientList.size();) {
-								//The chat information and user list are packaged into JSON format and sent to each client
-								String msg = data.getString("username") + " " + data.getString("time") + ":\n" 
-										+ data.getString("msg");
-								packMsg(data, i, msg);
-								i++;
+								if(data.getString("messageType").equals("message")) {
+									//The chat information and user list are packaged into JSON format and sent to each client
+									String msg = data.getString("username") + ":\n" + 
+											"(" + data.getString("time") + ") " + data.getString("msg") + "\n\n";
+									packMsg(i, msg, "");
+									i++;
+								}else if(data.getString("messageType").equals("file")) {
+									//The chat information and user list are packaged into JSON format and sent to each client
+									String msg = "Send file request detection to the user...";
+									String fileContent = data.getString("msg");
+									packMsg(i, msg, fileContent);
+									i++;
+								}
 							}
 						}
 					}
@@ -192,15 +209,17 @@ public class Server extends JFrame {
 		}
 
 		// The chat information and user list are packaged into JSON format and sent to a client
-		public void packMsg(JSONObject data, int i, String msg) {
+		public void packMsg(int i, String msg, String fileContent) {
 			//packing data 
 			JSONObject chatMessage = new JSONObject();
 			chatMessage.put("userlist", usernamelist);
 			chatMessage.put("msg", msg);
-
+			if(!fileContent.equals("")) {
+				chatMessage.put("fileContent", fileContent);
+			}
 			//Get a user
 			User user = clientList.get(i);
-
+			chatMessage.put("sender", user.getUserName());
 			//Send a message to the fetch user
 			try {
 				output = new DataOutputStream(user.getSocket().getOutputStream());

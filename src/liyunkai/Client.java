@@ -77,23 +77,17 @@ public class Client extends JFrame {
 		}
 	}
  
-	
-	
-	public void sendMessage(String msg) {
+	// 群聊发送消息
+	public void sendBroadcastMessage(String msg) {
 		try {
 			//Set the date format
 			SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			String time = data.format(new Date()).toString();
-			
-			System.out.println("Client.sendMessage: " + msg + " " + data);
- 
+			 
 			//Do message processing
 			if (msg.equals("")) {
 				//Prompt sending message cannot be null given
 				JOptionPane.showMessageDialog(null, "The message can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
-			}else if (msg.equals("STOP")) {
-				//The message cannot be sent for STOP to prevent triggering the server to exit with an exception
-				JOptionPane.showMessageDialog(null, "The message can't be STOP", "Warning!!!", JOptionPane.ERROR_MESSAGE);
 			}else if(msg.equals("EXIT")) {
 				//Package the data into JSON format
 				JSONObject data_send = new JSONObject();
@@ -104,38 +98,81 @@ public class Client extends JFrame {
 				data_send.put("isPrivChat", "");
 				//Send data to server
 				message_to_Server.writeUTF(data_send.toString());
-				System.exit(EXIT_ON_CLOSE);
+				window.frmCommunicationSystem.dispose();;
 			}else {
-				//Split the message into the chat content and the user name
-				String[] msg1 = msg.split("-");
-				//Distinguish between group chats and private chats
-				if(msg1.length == 2) {
-					//私聊模式
-					//Package the data into JSON format
-					JSONObject data_send = new JSONObject();
-					data_send.put("username", username);
-					data_send.put("msg", msg1[1]);
-					data_send.put("time", time);
-					//Private chat, set isPrivChat to the user_get
-					data_send.put("isPrivChat", msg1[0]);
-					//Send data to server
-					message_to_Server.writeUTF(data_send.toString());
-				}else {
-					//群发模式
-					JSONObject data_send = new JSONObject();
-					data_send.put("username", username);
-					data_send.put("msg", msg1[0]);
-					data_send.put("time", time);
-					//Useless account name, set isPrivChat to null
-					data_send.put("isPrivChat", "");
-					message_to_Server.writeUTF(data_send.toString());
-				}
+				//群发模式
+				JSONObject data_send = new JSONObject();
+				data_send.put("username", username);
+				data_send.put("msg", msg);
+				data_send.put("time", time);
+				//Useless account name, set isPrivChat to null
+				data_send.put("isPrivChat", "");
+				message_to_Server.writeUTF(data_send.toString());
 			}
 			//sendMessage.setText("");
 		} catch (Exception ex) {
 			System.err.println(ex);
 		}
 	}
+	
+	// 私聊发送消息
+	public void sendPrivateMessage(String msg, String recivername) {
+		try {
+			//Set the date format
+			SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			String time = data.format(new Date()).toString();
+			
+			//System.out.println("Client.sendMessage: " + msg + " " + data);
+ 
+			if (msg.equals("")) {
+				//Prompt sending message cannot be null given
+				JOptionPane.showMessageDialog(null, "The message can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+			}else if(msg.equals("EXIT")) {
+				//Package the data into JSON format
+				JSONObject data_send = new JSONObject();
+				data_send.put("username", username);
+				data_send.put("msg", msg);
+				data_send.put("time", time);
+				//Useless account name, set isPrivChat to null
+				data_send.put("isPrivChat", "");
+				//Send data to server
+				message_to_Server.writeUTF(data_send.toString());
+				window.frmCommunicationSystem.dispose();;
+			}else {
+				//私聊模式
+				//Package the data into JSON format
+				JSONObject data_send = new JSONObject();
+				data_send.put("username", username);
+				data_send.put("msg", msg);
+				data_send.put("time", time);
+				//Private chat, set isPrivChat to the user_get
+				data_send.put("isPrivChat", recivername);
+				//Send data to server
+				message_to_Server.writeUTF(data_send.toString());
+			}
+		} catch (Exception ex) {
+			System.err.println(ex);
+		}
+	}
+	
+	// 群聊发送文件
+	public void sendBroadcastFile(String msg, String filename) {
+		try {
+			//Set the date format
+			SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			String time = data.format(new Date()).toString();			
+			JSONObject data_send = new JSONObject();
+			data_send.put("username", username);
+			data_send.put("msg", msg);
+			data_send.put("time", time);
+			data_send.put("messageType", "file");
+			data_send.put("isPrivChat", "");  // set isPrivChat to null
+			message_to_Server.writeUTF(data_send.toString());
+		} catch (Exception ex) {
+			System.err.println(ex);
+		}
+	}
+	
 	
 	/** 
 	 * @author Eric Li
@@ -147,38 +184,39 @@ public class Client extends JFrame {
 		public void run() {
 			String json = null;
 			try {
-				//The wireless loop listens for data sent from the server
+				// The wireless loop listens for data sent from the server
 				while (true) {
-					//Read the data from the server
+					// Read the data from the server
 					json = message_from_Server.readUTF();
 					JSONObject data = JSONObject.fromObject(json.toString());
  
 					if (json != null) {
-						//得到msg并进行判断内容
+						// 得到msg并进行判断内容
 						String mString = data.getString("msg");
-
-						//Whether been kicked out of a group chat
-						if (mString.contains("been kicked out") && mString.contains(username)) {
-							isKick = true;
-							window.setContent(username + ",You've been kicked out\n" + "Client will be close in 5s");
-						}else {
-							//Print chat messages or system prompts
-							window.setContent(mString + "\n\n");
-
-							//Refresh the user list
-							list.clear();
-							JSONArray jsonArray = data.getJSONArray("userlist");
- 
-							//Getting a list of users
-							for (int i = 0; i < jsonArray.size(); i++) {
-								list.add(jsonArray.get(i).toString());
+						// 判断是文件询问还是普通消息
+						if(mString.equals("Send file request detection to the user...")) {
+							int opt = JOptionPane.showConfirmDialog(null, data.getString("sender") + "向你发送文件，是否接收?", "确认信息", JOptionPane.YES_NO_OPTION);
+							if (opt == JOptionPane.YES_OPTION) {
+								String content = data.getString("fileContent");
+								System.out.println(content);
+							}else {
+								
 							}
- 
-							// Update user list
-							window.updateUserlist(list);
+						}else {
+							// Print chat messages or system prompts
+							window.setContent(mString + "\n\n");
 						}
+						// Refresh the user list
+						list.clear();
+						JSONArray jsonArray = data.getJSONArray("userlist");
+						// Getting a list of users
+						for (int i = 0; i < jsonArray.size(); i++) {
+							list.add(jsonArray.get(i).toString());
+						}
+						// Update user list
+						window.updateUserlist(list);
 					}
- 
+
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
