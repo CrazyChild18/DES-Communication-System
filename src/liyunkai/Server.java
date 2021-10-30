@@ -3,12 +3,8 @@ package liyunkai;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import javax.swing.*;
 
-import net.sf.json.JSON;
 import net.sf.json.JSONObject;
 
 /**
@@ -21,14 +17,13 @@ import net.sf.json.JSONObject;
  * {@code}DataOutputStream: output stream
  * {@code}DataInputStream: input stream
  */
+@SuppressWarnings("serial")
 public class Server extends JFrame {
 
 	//List of online users
 	ArrayList<User> clientList = new ArrayList<User>();
 	//List of online user names
 	ArrayList<String> usernamelist = new ArrayList<String>();
-	//Kick out the user name
-	private String username_kick = null;
 	//User object, which has two variables socket and username
 	private User user = null;
 	//Declare an output stream
@@ -53,27 +48,22 @@ public class Server extends JFrame {
 
 		try {
 			//Create a server socket, bind port 8000
+			@SuppressWarnings("resource")
 			ServerSocket serverSocket = new ServerSocket(8080);
 			//Print startup time
 			window.addContent("Server: Startup time --> " + new Date() + "\n\n");
 			
 			//Infinite loop listens for new client connections
 			while (true) {
-
 				//Listen for a new connection
 				Socket socket = serverSocket.accept();
-
 				//When there is client connected
 				if (socket != null) {
 					//get user info
 					input = new DataInputStream(socket.getInputStream());
 					String json = input.readUTF();
 					JSONObject data = JSONObject.fromObject(json.toString());
-					window.addContent("Client online: " + data.getString("username") + " at:" + new Date());
-
-					//Display user IP
-					InetAddress inetAddress = socket.getInetAddress();
-					window.addContent(", IP address is：" + inetAddress.getHostAddress() + "\n\n");
+					window.addContent("Client online: " + data.getString("username") + " at: " + new Date() + "\n\n");
 
 					// Create a new user object, set socket, user name
 					user = new User();
@@ -84,6 +74,7 @@ public class Server extends JFrame {
 					clientList.add(user);
 					usernamelist.add(data.getString("username"));
 					// 将服务器在线用户列表更新
+					window.addContent("Update userlist at: " + new Date() + "\n\n");
 					window.updateUserlist(clientList, usernamelist);
 				}
 
@@ -93,13 +84,12 @@ public class Server extends JFrame {
 				online.put("msg", user.getUserName() + " logged in");
 				online.put("sender", user.getUserName());
 
-				//Prompt all users to have new users online
+				// Prompt all users to have new users online
 				for (int i = 0; i < clientList.size(); i++) {
 					try {
 						User user = clientList.get(i);
-						//Get each user socket, get the output stream
+						// Get each user socket, get the output stream
 						output = new DataOutputStream(user.getSocket().getOutputStream());
-						//Send data to each client
 						output.writeUTF(online.toString());
 					} catch (IOException ex) {
 						System.err.println(ex);
@@ -150,7 +140,7 @@ public class Server extends JFrame {
 						for(int i = 0; i < clientList.size(); i++) {
 							if (clientList.get(i).getUserName().equals(data.getString("username"))) {
 								offLine(i);
-								window.addContent("Client offline: " + data.getString("username") + " at:" + new Date());
+								window.addContent("Client ("  + data.getString("username") + ") offline at:" + new Date() + "\n\n");
 							}
 						}
 					}else {
@@ -159,26 +149,32 @@ public class Server extends JFrame {
 						// 找到目标用户并发送消息
 						for (int i = 0; i < clientList.size(); i++) {
 							// 找到私聊对象
-							System.out.println("服务器找到用户: " + clientList.get(i).getUserName());
 							if (clientList.get(i).getUserName().equals(data.getString("isPrivChat"))) {
 								// 判断为文本消息还是文件消息
 								if (data.getString("messageType").equals("message")) {
+									// 在服务器中记录消息来源
+									window.addClientFromContent("The server receives a message from (" + data.getString("username")+ "), the encrypted content is: " + data.getString("msg") + "\n\n");
 									// 编辑文本内容
 									String msg = data.getString("username") + " (" + data.getString("time") + ") "+ " private send to you:\n" + 
 											 data.getString("msg");
 									// 打包消息内容并发送到指定客户端
-									System.out.println("服务器封装消息");
 									packMsg(i, msg, "", data);
+									// 在服务器中记录消息走向
+									window.addClientToContent("The server forwards the message to the user: " + data.getString("isPrivChat"));
 									i++;
 									// 以此跳过群发检测
 									isPrivate = true;
 									break;
 								}else if(data.getString("messageType").equals("file")) {
+									// 在服务器中记录消息来源
+									window.addClientFromContent("The server receives a file from (" + data.getString("username")+ "), the encrypted content is: " + data.getString("msg") + "\n\n");
 									// 编辑文件检测信息
 									String msg = "Send file request detection to the user...";
 									String fileContent = data.getString("msg");
 									// 打包消息内容并发送到指定客户端
 									packMsg(i, msg, fileContent, data);
+									// 在服务器中记录消息走向
+									window.addClientToContent("The server forwards the file to the user: " + data.getString("isPrivChat"));
 									i++;
 									// 以此跳过群发检测
 									isPrivate = true;
@@ -189,15 +185,27 @@ public class Server extends JFrame {
 						// 群聊消息
 						// 向列表所有用户发送消息
 						if (isPrivate == false) {
+							if(data.getString("messageType").equals("message")) {
+								// 在服务器中记录消息来源
+								window.addClientFromContent("The server receives a message from (" + data.getString("username")+ "), the encrypted content is: " + data.getString("msg") + "\n\n");
+								// 在服务器中记录消息走向
+								window.addClientToContent("The server forwards the message to the following user:\n");
+							}else if(data.getString("messageType").equals("file")) {
+								// 在服务器中记录消息来源
+								window.addClientFromContent("The server receives a file from (" + data.getString("username")+ "), the encrypted content is: " + data.getString("msg") + "\n\n");
+								// 在服务器中记录消息走向
+								window.addClientToContent("The server forwards the file to the following user:\n");
+							}
 							for (int i = 0; i < clientList.size();) {
-								System.out.println("服务器找到用户: " + clientList.get(i).getUserName());
 								if(data.getString("messageType").equals("message")) {
+									window.addClientToContent("    " + clientList.get(i).getUserName() + "\n");
 									// 将消息内容打包并转发给客户端
 									String msg = data.getString("username") + "(" + data.getString("time") + "):\n"+ 
 												data.getString("msg");
 									packMsg(i, msg, "", data);
 									i++;
 								}else if(data.getString("messageType").equals("file")) {
+									window.addClientToContent("    " + clientList.get(i).getUserName());
 									// 将文件信息和标识打包发送给客户端
 									String msg = "Send file request detection to the user...";
 									String fileContent = data.getString("msg");
@@ -205,6 +213,7 @@ public class Server extends JFrame {
 									i++;
 								}
 							}
+							window.addClientFromContent("\n");
 						}
 					}
 				}

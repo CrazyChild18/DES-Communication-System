@@ -1,19 +1,16 @@
 package liyunkai;
 
-import java.awt.EventQueue;
-
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.SwingConstants;
 import java.awt.Font;
-import java.awt.TextArea;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -23,7 +20,6 @@ import java.awt.BorderLayout;
 import javax.swing.JMenuBar;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import java.awt.Color;
@@ -32,8 +28,6 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import org.apache.commons.codec.binary.Base64;
-
-import net.sf.json.JSONObject;
 
 import javax.swing.JList;
 import javax.swing.DefaultListModel;
@@ -54,6 +48,7 @@ public class ClientGUI {
 	private JTextArea content;
 	private boolean isPrivate = false;
 	private String privateName;
+	private JTextArea beforeEncryptionArea, afterEncryptionArea;
 	private JFileChooser fileDialog; // 文件对话框
 
 
@@ -170,7 +165,7 @@ public class ClientGUI {
 					if (!msg.equals("") && !msg.equals("EXIT")) {
 						SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 						String time = data.format(new Date()).toString();
-						setContent("You private send to" + privateName + " (" + time + "):\n" + msg + "\n\n");
+						setContent("You private send to " + privateName + " (" + time + "):\n" + msg + "\n\n");
 					}
 					client.sendPrivateMessage(msg, privateName);
 				}
@@ -260,7 +255,7 @@ public class ClientGUI {
 		frmCommunicationSystem.getContentPane().add(broadcast_button);
 		
 		JScrollPane scrollPane = new JScrollPane();
-		scrollPane.setBounds(277, 77, 809, 476);
+		scrollPane.setBounds(277, 77, 809, 363);
 		frmCommunicationSystem.getContentPane().add(scrollPane);
 		
 		content = new JTextArea();
@@ -270,6 +265,32 @@ public class ClientGUI {
 		content.setEditable(false);
 		content.setBackground(new Color(204, 204, 204));
 		scrollPane.setViewportView(content);
+		
+		JScrollPane scrollPane_1 = new JScrollPane();
+		scrollPane_1.setBounds(277, 439, 405, 115);
+		frmCommunicationSystem.getContentPane().add(scrollPane_1);
+		
+		beforeEncryptionArea = new JTextArea();
+		beforeEncryptionArea.setEditable(false);
+		scrollPane_1.setViewportView(beforeEncryptionArea);
+		
+		JLabel lblNewLabel_1 = new JLabel("Before Encryption");
+		lblNewLabel_1.setHorizontalAlignment(SwingConstants.CENTER);
+		lblNewLabel_1.setFont(new Font("Times New Roman", Font.BOLD | Font.ITALIC, 15));
+		scrollPane_1.setColumnHeaderView(lblNewLabel_1);
+		
+		JScrollPane scrollPane_1_1 = new JScrollPane();
+		scrollPane_1_1.setBounds(681, 439, 405, 113);
+		frmCommunicationSystem.getContentPane().add(scrollPane_1_1);
+		
+		afterEncryptionArea = new JTextArea();
+		afterEncryptionArea.setEditable(false);
+		scrollPane_1_1.setViewportView(afterEncryptionArea);
+		
+		JLabel lblNewLabel_2 = new JLabel("After Encryption");
+		lblNewLabel_2.setFont(new Font("Times New Roman", Font.BOLD | Font.ITALIC, 15));
+		lblNewLabel_2.setHorizontalAlignment(SwingConstants.CENTER);
+		scrollPane_1_1.setColumnHeaderView(lblNewLabel_2);
 		broadcast_button.addActionListener(new ActionListener() {
 			// 转为所有人聊天
 			@Override
@@ -281,6 +302,16 @@ public class ClientGUI {
 			}
 		});
 		
+	}
+	
+	public void setBeforeEncryptionArea(String c) {
+		beforeEncryptionArea.setText(c);
+		beforeEncryptionArea.setCaretPosition(0);
+	}
+	
+	public void setAfterEncryptionArea(String c) {
+		afterEncryptionArea.setText(c);
+		afterEncryptionArea.setCaretPosition(0);
 	}
 	
 	public void setContent(String text) {

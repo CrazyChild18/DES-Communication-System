@@ -5,13 +5,7 @@ import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.awt.*;
-import java.awt.event.*;
- 
 import javax.swing.*;
-import javax.swing.border.TitledBorder;
-
-
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
  
@@ -27,12 +21,6 @@ import net.sf.json.JSONObject;
  */
 public class Client extends JFrame {
  
-	//Accept message box
-	private JTextField sendMessage = new JTextField();
-	//Display information box
-	private JTextArea showMessage = new JTextArea();
-	//Display user list
-	private JTextArea userlist = new JTextArea(10, 10);
 	//IO
 	private DataOutputStream message_to_Server;
 	private DataInputStream message_from_Server;
@@ -40,7 +28,6 @@ public class Client extends JFrame {
 	private String username = null;
 	//users list
 	private ArrayList<String> list = new ArrayList<>();
-	private boolean isKick = false;
 	private ClientGUI window;
 	
 

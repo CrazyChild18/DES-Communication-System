@@ -8,18 +8,13 @@ import java.awt.Window.Type;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.DropMode;
-import javax.swing.JTextPane;
-import java.awt.SystemColor;
 import java.awt.Color;
 import java.awt.Font;
-import java.awt.TextField;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 
 import java.awt.BorderLayout;
 import javax.swing.border.LineBorder;
-import javax.swing.JTextArea;
 import javax.swing.JButton;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
@@ -28,7 +23,6 @@ public class RegistGUI {
 
 	private JFrame RegisterWindows;
 	private JTextField username_input;
-	private String username;
 
 	/**
 	 * Launch the application.
