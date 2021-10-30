@@ -169,7 +169,7 @@ public class RegistGUI {
  
 				if (username.equals("")) {
 					// The user name cannot be empty
-					JOptionPane.showMessageDialog(null, "The username can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(RegisterWindows, "The username can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
 				} else {
 					// Close the Settings page and launch the chat box page
 					RegisterWindows.dispose();

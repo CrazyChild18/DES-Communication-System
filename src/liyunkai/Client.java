@@ -94,6 +94,7 @@ public class Client extends JFrame {
 				data_send.put("username", username);
 				data_send.put("msg", msg);
 				data_send.put("time", time);
+				data_send.put("messageType", "message");
 				//Useless account name, set isPrivChat to null
 				data_send.put("isPrivChat", "");
 				//Send data to server
@@ -105,11 +106,12 @@ public class Client extends JFrame {
 				data_send.put("username", username);
 				data_send.put("msg", msg);
 				data_send.put("time", time);
+				data_send.put("messageType", "message");
 				//Useless account name, set isPrivChat to null
 				data_send.put("isPrivChat", "");
 				message_to_Server.writeUTF(data_send.toString());
+				System.out.println("群发消息至服务器，等待转发");
 			}
-			//sendMessage.setText("");
 		} catch (Exception ex) {
 			System.err.println(ex);
 		}
@@ -133,6 +135,7 @@ public class Client extends JFrame {
 				data_send.put("username", username);
 				data_send.put("msg", msg);
 				data_send.put("time", time);
+				data_send.put("messageType", "message");
 				//Useless account name, set isPrivChat to null
 				data_send.put("isPrivChat", "");
 				//Send data to server
@@ -145,10 +148,12 @@ public class Client extends JFrame {
 				data_send.put("username", username);
 				data_send.put("msg", msg);
 				data_send.put("time", time);
+				data_send.put("messageType", "message");
 				//Private chat, set isPrivChat to the user_get
 				data_send.put("isPrivChat", recivername);
 				//Send data to server
 				message_to_Server.writeUTF(data_send.toString());
+				System.out.println("私聊消息至服务器，等待转发");
 			}
 		} catch (Exception ex) {
 			System.err.println(ex);
@@ -167,6 +172,24 @@ public class Client extends JFrame {
 			data_send.put("time", time);
 			data_send.put("messageType", "file");
 			data_send.put("isPrivChat", "");  // set isPrivChat to null
+			message_to_Server.writeUTF(data_send.toString());
+		} catch (Exception ex) {
+			System.err.println(ex);
+		}
+	}
+	
+	// 私聊发送文件
+	public void sendPrivateFile(String msg, String filename, String recivername) {
+		try {
+			//Set the date format
+			SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			String time = data.format(new Date()).toString();			
+			JSONObject data_send = new JSONObject();
+			data_send.put("username", username);
+			data_send.put("msg", msg);
+			data_send.put("time", time);
+			data_send.put("messageType", "file");
+			data_send.put("isPrivChat", recivername);  // set isPrivChat to null
 			message_to_Server.writeUTF(data_send.toString());
 		} catch (Exception ex) {
 			System.err.println(ex);
@@ -193,18 +216,25 @@ public class Client extends JFrame {
 					if (json != null) {
 						// 得到msg并进行判断内容
 						String mString = data.getString("msg");
+						System.out.println("客户端接收到服务器转发消息");
 						// 判断是文件询问还是普通消息
 						if(mString.equals("Send file request detection to the user...")) {
-							int opt = JOptionPane.showConfirmDialog(null, data.getString("sender") + "向你发送文件，是否接收?", "确认信息", JOptionPane.YES_NO_OPTION);
-							if (opt == JOptionPane.YES_OPTION) {
-								String content = data.getString("fileContent");
-								System.out.println(content);
-							}else {
-								
+							// 普通消息
+							if(!data.getString("sender").equals(username)) {
+								// 传输文件
+								int opt = JOptionPane.showConfirmDialog(window.frmCommunicationSystem, data.getString("sender") + "向你发送文件，是否接收?", "确认信息", JOptionPane.YES_NO_OPTION);
+								if (opt == JOptionPane.YES_OPTION) {
+									String content = data.getString("fileContent");
+									window.saveFile(content, data.getString("sender"));
+								}else {
+									window.setContent("You have rejected file sharing from: " + data.getString("sender") + "\n\n");
+								}
 							}
 						}else {
-							// Print chat messages or system prompts
-							window.setContent(mString + "\n\n");
+							// 普通消息
+							if(!data.getString("sender").equals(username)) {
+								window.setContent(mString + "\n\n");
+							}
 						}
 						// Refresh the user list
 						list.clear();

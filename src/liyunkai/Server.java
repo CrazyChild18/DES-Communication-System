@@ -7,6 +7,8 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import javax.swing.*;
+
+import net.sf.json.JSON;
 import net.sf.json.JSONObject;
 
 /**
@@ -73,17 +75,14 @@ public class Server extends JFrame {
 					InetAddress inetAddress = socket.getInetAddress();
 					window.addContent(", IP address is：" + inetAddress.getHostAddress() + "\n\n");
 
-					//Create a new user object, set socket, user name
+					// Create a new user object, set socket, user name
 					user = new User();
 					user.setSocket(socket);
 					user.setUserName(data.getString("username"));
 
-					//Join the list of online user groups
+					// 更新服务器储存在线用户信息
 					clientList.add(user);
-					//Add user name list (users are displayed in the client user list)
 					usernamelist.add(data.getString("username"));
-					
-					
 					// 将服务器在线用户列表更新
 					window.updateUserlist(clientList, usernamelist);
 				}
@@ -92,6 +91,7 @@ public class Server extends JFrame {
 				JSONObject online = new JSONObject();
 				online.put("userlist", usernamelist);
 				online.put("msg", user.getUserName() + " logged in");
+				online.put("sender", user.getUserName());
 
 				//Prompt all users to have new users online
 				for (int i = 0; i < clientList.size(); i++) {
@@ -142,9 +142,11 @@ public class Server extends JFrame {
 					//Get the client data
 					String json = inputFromClient.readUTF();
 					JSONObject data = JSONObject.fromObject(json.toString());
-										
+					
+					
 					if(data.getString("msg").equals("EXIT")) {
-						//If is EXIT, the offLine function is executed
+						// 下线消息
+						// 执行下线函数来通知
 						for(int i = 0; i < clientList.size(); i++) {
 							if (clientList.get(i).getUserName().equals(data.getString("username"))) {
 								offLine(i);
@@ -153,18 +155,20 @@ public class Server extends JFrame {
 						}
 					}else {
 						boolean isPrivate = false;
-
-						// Private chat, the acquired data forward to the designated user
+						// 私聊消息
+						// 找到目标用户并发送消息
 						for (int i = 0; i < clientList.size(); i++) {
 							// 找到私聊对象
+							System.out.println("服务器找到用户: " + clientList.get(i).getUserName());
 							if (clientList.get(i).getUserName().equals(data.getString("isPrivChat"))) {
 								// 判断为文本消息还是文件消息
 								if (data.getString("messageType").equals("message")) {
 									// 编辑文本内容
-									String msg = data.getString("username") + " private send to you:\n" + 
-											"(" + data.getString("time") + ") "+ data.getString("msg") + "\n\n";
+									String msg = data.getString("username") + " (" + data.getString("time") + ") "+ " private send to you:\n" + 
+											 data.getString("msg");
 									// 打包消息内容并发送到指定客户端
-									packMsg(i, msg, "");
+									System.out.println("服务器封装消息");
+									packMsg(i, msg, "", data);
 									i++;
 									// 以此跳过群发检测
 									isPrivate = true;
@@ -174,7 +178,7 @@ public class Server extends JFrame {
 									String msg = "Send file request detection to the user...";
 									String fileContent = data.getString("msg");
 									// 打包消息内容并发送到指定客户端
-									packMsg(i, msg, fileContent);
+									packMsg(i, msg, fileContent, data);
 									i++;
 									// 以此跳过群发检测
 									isPrivate = true;
@@ -182,21 +186,22 @@ public class Server extends JFrame {
 								}
 							}
 						}
-						//group chat
-						//Forward the acquired data to each user
+						// 群聊消息
+						// 向列表所有用户发送消息
 						if (isPrivate == false) {
 							for (int i = 0; i < clientList.size();) {
+								System.out.println("服务器找到用户: " + clientList.get(i).getUserName());
 								if(data.getString("messageType").equals("message")) {
-									//The chat information and user list are packaged into JSON format and sent to each client
-									String msg = data.getString("username") + ":\n" + 
-											"(" + data.getString("time") + ") " + data.getString("msg") + "\n\n";
-									packMsg(i, msg, "");
+									// 将消息内容打包并转发给客户端
+									String msg = data.getString("username") + "(" + data.getString("time") + "):\n"+ 
+												data.getString("msg");
+									packMsg(i, msg, "", data);
 									i++;
 								}else if(data.getString("messageType").equals("file")) {
-									//The chat information and user list are packaged into JSON format and sent to each client
+									// 将文件信息和标识打包发送给客户端
 									String msg = "Send file request detection to the user...";
 									String fileContent = data.getString("msg");
-									packMsg(i, msg, fileContent);
+									packMsg(i, msg, fileContent, data);
 									i++;
 								}
 							}
@@ -208,8 +213,9 @@ public class Server extends JFrame {
 			}
 		}
 
-		// The chat information and user list are packaged into JSON format and sent to a client
-		public void packMsg(int i, String msg, String fileContent) {
+		// 对信息内容、时间、发送者进行整理打包
+		// 同时包含服务器在线用户列表，用以同步客户端的列表
+		public void packMsg(int i, String msg, String fileContent, JSONObject data) {
 			//packing data 
 			JSONObject chatMessage = new JSONObject();
 			chatMessage.put("userlist", usernamelist);
@@ -217,21 +223,19 @@ public class Server extends JFrame {
 			if(!fileContent.equals("")) {
 				chatMessage.put("fileContent", fileContent);
 			}
-			//Get a user
+			// 获取接受者
 			User user = clientList.get(i);
-			chatMessage.put("sender", user.getUserName());
-			//Send a message to the fetch user
+			chatMessage.put("sender", data.getString("username"));
 			try {
 				output = new DataOutputStream(user.getSocket().getOutputStream());
 				output.writeUTF(chatMessage.toString());
+				System.out.println("服务器消息发送给用户: " + user.getUserName());
 			} catch (IOException e) {
-				//Prevents the client from shutting down directly rather than quitting using instructions
 				offLine(i);
 			}
-
 		}
 
-		//Prompt log off
+		// 客户端下线，打包下线消息
 		public void offLine(int i) {
 			User outuser = clientList.get(i);
 
