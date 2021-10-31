@@ -7,6 +7,7 @@ import java.awt.Toolkit;
 import java.awt.Window.Type;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import java.awt.Color;
 import java.awt.Font;
@@ -16,13 +17,18 @@ import javax.swing.JOptionPane;
 import java.awt.BorderLayout;
 import javax.swing.border.LineBorder;
 import javax.swing.JButton;
+import javax.swing.JComponent;
+
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.ActionEvent;
 
 public class RegistGUI {
 
 	private JFrame RegisterWindows;
 	private JTextField username_input;
+	private JTextField key_input;
 
 	/**
 	 * Launch the application.
@@ -120,14 +126,14 @@ public class RegistGUI {
 		lblNewLabel_1.setForeground(new Color(255, 255, 255));
 		lblNewLabel_1.setFont(new Font("Times New Roman", Font.BOLD, 50));
 		lblNewLabel_1.setHorizontalAlignment(SwingConstants.CENTER);
-		lblNewLabel_1.setBounds(281, 96, 431, 55);
+		lblNewLabel_1.setBounds(281, 83, 431, 55);
 		RegisterWindows.getContentPane().add(lblNewLabel_1);
 		
 		JPanel panel_2 = new JPanel();
 		panel_2.setBackground(new Color(102, 102, 255));
 		panel_2.setForeground(new Color(255, 255, 255));
 		panel_2.setBorder(null);
-		panel_2.setBounds(300, 235, 105, 45);
+		panel_2.setBounds(300, 209, 105, 45);
 		RegisterWindows.getContentPane().add(panel_2);
 		panel_2.setLayout(new BorderLayout(0, 0));
 		
@@ -140,7 +146,7 @@ public class RegistGUI {
 		JPanel panel_3 = new JPanel();
 		panel_3.setBorder(new LineBorder(new Color(255, 255, 255), 2, true));
 		panel_3.setBackground(new Color(102, 102, 255));
-		panel_3.setBounds(435, 235, 250, 45);
+		panel_3.setBounds(435, 209, 250, 45);
 		RegisterWindows.getContentPane().add(panel_3);
 		panel_3.setLayout(new BorderLayout(0, 0));
 		
@@ -151,6 +157,41 @@ public class RegistGUI {
 		username_input.setBackground(new Color(102, 102, 255));
 		panel_3.add(username_input);
 		username_input.setColumns(10);
+		username_input.addKeyListener(new KeyListener() {
+			
+			@Override
+			public void keyTyped(KeyEvent e) {
+				if (e.getKeyChar() == KeyEvent.VK_ENTER) {
+					//Get UserName
+					String username = username_input.getText().trim();
+					String key = getKey();
+	 
+					if (username.equals("")) {
+						// The user name cannot be empty
+						JOptionPane.showMessageDialog(RegisterWindows, "The username can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+					}else if(key.equals("")){
+						// The key cannot be empty
+						JOptionPane.showMessageDialog(RegisterWindows, "The secret key can't be null!\nPlease enter the same secret key as agreed by the receiver.", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+					}else {
+						// Close the Settings page and launch the chat box page
+						RegisterWindows.dispose();
+						new Client(username, key);
+					}
+                }
+			}
+			
+			@Override
+			public void keyReleased(KeyEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void keyPressed(KeyEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+		});
 		
 		JButton btnNewButton = new JButton("Login");
 		btnNewButton.setFont(new Font("Times New Roman", Font.BOLD, 30));
@@ -160,18 +201,90 @@ public class RegistGUI {
 			public void actionPerformed(ActionEvent e) {
 				//Get UserName
 				String username = username_input.getText().trim();
+				String key = getKey();
  
 				if (username.equals("")) {
 					// The user name cannot be empty
 					JOptionPane.showMessageDialog(RegisterWindows, "The username can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
-				} else {
+				} else if(key.equals("")){
+					// The key cannot be empty
+					JOptionPane.showMessageDialog(RegisterWindows, "The secret key can't be null!\nPlease enter the same secret key as agreed by the receiver.", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+				}else {
 					// Close the Settings page and launch the chat box page
 					RegisterWindows.dispose();
-					new Client(username);
+					new Client(username, key);
 				}
 			}
 		});
-		btnNewButton.setBounds(408, 337, 154, 45);
+		btnNewButton.setBounds(408, 365, 154, 45);
 		RegisterWindows.getContentPane().add(btnNewButton);
+		
+		JPanel panel_2_1 = new JPanel();
+		panel_2_1.setForeground(Color.WHITE);
+		panel_2_1.setBorder(null);
+		panel_2_1.setBackground(new Color(102, 102, 255));
+		panel_2_1.setBounds(300, 285, 105, 45);
+		RegisterWindows.getContentPane().add(panel_2_1);
+		panel_2_1.setLayout(new BorderLayout(0, 0));
+		
+		JLabel lblNewLabel_2_1 = new JLabel("Secret Key:");
+		lblNewLabel_2_1.setHorizontalAlignment(SwingConstants.CENTER);
+		lblNewLabel_2_1.setForeground(Color.WHITE);
+		lblNewLabel_2_1.setFont(new Font("Times New Roman", Font.BOLD, 20));
+		panel_2_1.add(lblNewLabel_2_1, BorderLayout.CENTER);
+		
+		JPanel panel_3_1 = new JPanel();
+		panel_3_1.setBorder(new LineBorder(new Color(255, 255, 255), 2, true));
+		panel_3_1.setBackground(new Color(102, 102, 255));
+		panel_3_1.setBounds(435, 285, 250, 45);
+		RegisterWindows.getContentPane().add(panel_3_1);
+		panel_3_1.setLayout(new BorderLayout(0, 0));
+		
+		key_input = new JTextField();
+		key_input.setHorizontalAlignment(SwingConstants.CENTER);
+		key_input.setForeground(Color.WHITE);
+		key_input.setFont(new Font("Times New Roman", Font.BOLD | Font.ITALIC, 21));
+		key_input.setColumns(10);
+		key_input.setBackground(new Color(102, 102, 255));
+		panel_3_1.add(key_input, BorderLayout.CENTER);
+		key_input.addKeyListener(new KeyListener() {
+			
+			@Override
+			public void keyTyped(KeyEvent e) {
+				if (e.getKeyChar() == KeyEvent.VK_ENTER) {
+					//Get UserName
+					String username = username_input.getText().trim();
+					String key = getKey();
+	 
+					if (username.equals("")) {
+						// The user name cannot be empty
+						JOptionPane.showMessageDialog(RegisterWindows, "The username can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+					}else if(key.equals("")){
+						// The key cannot be empty
+						JOptionPane.showMessageDialog(RegisterWindows, "The secret key can't be null!\nPlease enter the same secret key as agreed by the receiver.", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+					}else {
+						// Close the Settings page and launch the chat box page
+						RegisterWindows.dispose();
+						new Client(username, key);
+					}
+                }
+			}
+			
+			@Override
+			public void keyReleased(KeyEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void keyPressed(KeyEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+		});
+	}
+	
+	public String getKey() {
+		return key_input.getText();
 	}
 }

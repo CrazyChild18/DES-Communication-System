@@ -2,8 +2,12 @@ package liyunkai;
 
 import java.io.*;
 import java.net.*;
+import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import javax.swing.*;
+
+import org.apache.commons.codec.binary.Base64;
 
 import net.sf.json.JSONObject;
 
@@ -24,6 +28,10 @@ public class Server extends JFrame {
 	ArrayList<User> clientList = new ArrayList<User>();
 	//List of online user names
 	ArrayList<String> usernamelist = new ArrayList<String>();
+	//List of offline users
+	ArrayList<User> offlineClientList = new ArrayList<User>();
+	//List of offline user names
+	ArrayList<String> offlineUsernamelist = new ArrayList<String>();
 	//User object, which has two variables socket and username
 	private User user = null;
 	//Declare an output stream
@@ -57,19 +65,17 @@ public class Server extends JFrame {
 			while (true) {
 				//Listen for a new connection
 				Socket socket = serverSocket.accept();
-				//When there is client connected
+				// 接收到上线连接
 				if (socket != null) {
-					//get user info
+					// 获得上线用户信息
 					input = new DataInputStream(socket.getInputStream());
 					String json = input.readUTF();
 					JSONObject data = JSONObject.fromObject(json.toString());
 					window.addContent("Client online: " + data.getString("username") + " at: " + new Date() + "\n\n");
-
-					// Create a new user object, set socket, user name
+					// Create a new user object
 					user = new User();
 					user.setSocket(socket);
 					user.setUserName(data.getString("username"));
-
 					// 更新服务器储存在线用户信息
 					clientList.add(user);
 					usernamelist.add(data.getString("username"));
@@ -78,13 +84,25 @@ public class Server extends JFrame {
 					window.updateUserlist(clientList, usernamelist);
 				}
 
-				//When users are prompted to go online, package the data into JSON format
+				// 创建新的服务器消息，并发送给客户端
 				JSONObject online = new JSONObject();
+				SimpleDateFormat dataType = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+				String time = dataType.format(new Date()).toString();
 				online.put("userlist", usernamelist);
-				online.put("msg", user.getUserName() + " logged in");
-				online.put("sender", user.getUserName());
-
-				// Prompt all users to have new users online
+				String onlineMessage = user.getUserName() + " logged in\n\n";
+				
+				DESAlgorithm des = new DESAlgorithm("7355608");
+		        // 将输入内容转化为byte数组
+		        byte[] dataBytes = onlineMessage.getBytes(Charset.forName("UTF-8"));		        
+		        // 调用DesStrat函数进行加密，加密代码为1
+		        byte[] result = des.DesStart(dataBytes, 1);
+		        // 将加密后的byte转化为string传输展示
+		        String atest = Base64.encodeBase64String(result);
+				
+		        online.put("msg", atest);
+				online.put("username", "Server");
+				online.put("messageType", "message");
+				online.put("time", time);
 				for (int i = 0; i < clientList.size(); i++) {
 					try {
 						User user = clientList.get(i);
@@ -96,8 +114,7 @@ public class Server extends JFrame {
 					}
 				}
 				
-				//Socket as a parameter
-				//Create a thread for the current connected user to listen for the socket's data
+				// 为客户端创建线程
 				HandleAClient task = new HandleAClient(socket);
 				new Thread(task).start();
 			}
@@ -123,13 +140,13 @@ public class Server extends JFrame {
 		public void run() {
 
 			try {
-				//Gets the input stream from the socket client that this thread is listening to
+				// Gets the input stream from the socket client that this thread is listening to
 				DataInputStream inputFromClient = new DataInputStream(socket.getInputStream());
 
-				//Cycle to monitor
+				// Cycle to monitor
 				while (true) {
 
-					//Get the client data
+					// Get the client data
 					String json = inputFromClient.readUTF();
 					JSONObject data = JSONObject.fromObject(json.toString());
 					
@@ -143,6 +160,52 @@ public class Server extends JFrame {
 								window.addContent("Client ("  + data.getString("username") + ") offline at:" + new Date() + "\n\n");
 							}
 						}
+					}else if(data.getString("msg").equals("Connect!!!")) {
+						System.out.println("服务器收到重新连接请求");
+						// 重新上线消息
+						window.addContent("Client online: " + data.getString("username") + " at: " + new Date() + "\n\n");
+						// Create a new user object
+						for(int i = 0; i < offlineClientList.size(); i++) {
+							if(offlineUsernamelist.get(i).equals(data.getString("username"))) {
+								user = offlineClientList.get(i);
+							}
+						}
+						// 更新服务器储存在线用户信息
+						clientList.add(user);
+						usernamelist.add(data.getString("username"));
+						// 将服务器在线用户列表更新
+						window.addContent("Update userlist at: " + new Date() + "\n\n");
+						window.updateUserlist(clientList, usernamelist);
+						// 创建新的服务器消息，并发送给客户端
+						JSONObject online = new JSONObject();
+						SimpleDateFormat dataType = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+						String time = dataType.format(new Date()).toString();
+						online.put("userlist", usernamelist);
+						String onlineMessage = user.getUserName() + " logged in";
+						
+						DESAlgorithm des = new DESAlgorithm("7355608");
+				        // 将输入内容转化为byte数组
+				        byte[] dataBytes = onlineMessage.getBytes(Charset.forName("UTF-8"));		        
+				        // 调用DesStrat函数进行加密，加密代码为1
+				        byte[] result = des.DesStart(dataBytes, 1);
+				        // 将加密后的byte转化为string传输展示
+				        String atest = Base64.encodeBase64String(result);
+						
+				        online.put("msg", atest);
+						online.put("username", "Server");
+						online.put("messageType", "message");
+						online.put("time", time);
+						for (int i = 0; i < clientList.size(); i++) {
+							try {
+								User user = clientList.get(i);
+								// Get each user socket, get the output stream
+								output = new DataOutputStream(user.getSocket().getOutputStream());
+								output.writeUTF(online.toString());
+								System.out.println("服务器转发重新连接请求给: " + user.getUserName());
+							} catch (IOException ex) {
+								System.err.println(ex);
+							}
+						}
 					}else {
 						boolean isPrivate = false;
 						// 私聊消息
@@ -154,13 +217,10 @@ public class Server extends JFrame {
 								if (data.getString("messageType").equals("message")) {
 									// 在服务器中记录消息来源
 									window.addClientFromContent("The server receives a message from (" + data.getString("username")+ "), the encrypted content is: " + data.getString("msg") + "\n\n");
-									// 编辑文本内容
-									String msg = data.getString("username") + " (" + data.getString("time") + ") "+ " private send to you:\n" + 
-											 data.getString("msg");
 									// 打包消息内容并发送到指定客户端
-									packMsg(i, msg, "", data);
+									packMsg(i, data.getString("msg"), data);
 									// 在服务器中记录消息走向
-									window.addClientToContent("The server forwards the message to the user: " + data.getString("isPrivChat"));
+									window.addClientToContent("The server forwards the message to the user: " + data.getString("isPrivChat") + "\n\n");
 									i++;
 									// 以此跳过群发检测
 									isPrivate = true;
@@ -168,13 +228,10 @@ public class Server extends JFrame {
 								}else if(data.getString("messageType").equals("file")) {
 									// 在服务器中记录消息来源
 									window.addClientFromContent("The server receives a file from (" + data.getString("username")+ "), the encrypted content is: " + data.getString("msg") + "\n\n");
-									// 编辑文件检测信息
-									String msg = "Send file request detection to the user...";
-									String fileContent = data.getString("msg");
 									// 打包消息内容并发送到指定客户端
-									packMsg(i, msg, fileContent, data);
+									packMsg(i, data.getString("msg"), data);
 									// 在服务器中记录消息走向
-									window.addClientToContent("The server forwards the file to the user: " + data.getString("isPrivChat"));
+									window.addClientToContent("The server forwards the file to the user: " + data.getString("isPrivChat") + "\n\n");
 									i++;
 									// 以此跳过群发检测
 									isPrivate = true;
@@ -200,16 +257,12 @@ public class Server extends JFrame {
 								if(data.getString("messageType").equals("message")) {
 									window.addClientToContent("    " + clientList.get(i).getUserName() + "\n");
 									// 将消息内容打包并转发给客户端
-									String msg = data.getString("username") + "(" + data.getString("time") + "):\n"+ 
-												data.getString("msg");
-									packMsg(i, msg, "", data);
+									packMsg(i, data.getString("msg"), data);
 									i++;
 								}else if(data.getString("messageType").equals("file")) {
-									window.addClientToContent("    " + clientList.get(i).getUserName());
+									window.addClientToContent("    " + clientList.get(i).getUserName() + "\n");
 									// 将文件信息和标识打包发送给客户端
-									String msg = "Send file request detection to the user...";
-									String fileContent = data.getString("msg");
-									packMsg(i, msg, fileContent, data);
+									packMsg(i, data.getString("msg"), data);
 									i++;
 								}
 							}
@@ -224,21 +277,21 @@ public class Server extends JFrame {
 
 		// 对信息内容、时间、发送者进行整理打包
 		// 同时包含服务器在线用户列表，用以同步客户端的列表
-		public void packMsg(int i, String msg, String fileContent, JSONObject data) {
-			//packing data 
+		public void packMsg(int i, String msg, JSONObject data) {
+			SimpleDateFormat dataType = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			String time = dataType.format(new Date()).toString();
+			// packing data 
 			JSONObject chatMessage = new JSONObject();
 			chatMessage.put("userlist", usernamelist);
 			chatMessage.put("msg", msg);
-			if(!fileContent.equals("")) {
-				chatMessage.put("fileContent", fileContent);
-			}
+			chatMessage.put("time", time);
 			// 获取接受者
 			User user = clientList.get(i);
-			chatMessage.put("sender", data.getString("username"));
+			chatMessage.put("username", data.getString("username"));
+			chatMessage.put("messageType", data.getString("messageType"));
 			try {
 				output = new DataOutputStream(user.getSocket().getOutputStream());
 				output.writeUTF(chatMessage.toString());
-				System.out.println("服务器消息发送给用户: " + user.getUserName());
 			} catch (IOException e) {
 				offLine(i);
 			}
@@ -247,16 +300,33 @@ public class Server extends JFrame {
 		// 客户端下线，打包下线消息
 		public void offLine(int i) {
 			User outuser = clientList.get(i);
-
-			//Removed from the list
+			// 加入到下线列表
+			offlineClientList.add(outuser);
+			offlineUsernamelist.add(outuser.getUserName());
+			// Removed from the list
 			clientList.remove(i);
 			usernamelist.remove(outuser.getUserName());
 			// 将服务器在线用户列表更新
 			window.updateUserlist(clientList, usernamelist);
-			//Package the outgoing message that goes offline
+			// Package the outgoing message that goes offline
 			JSONObject out = new JSONObject();
 			out.put("userlist", usernamelist);
-			out.put("msg", outuser.getUserName() + " exit\n");
+			String offlineMessage = outuser.getUserName() + " exit\n\n";
+			
+			DESAlgorithm des = new DESAlgorithm("7355608");
+	        // 将输入内容转化为byte数组
+	        byte[] dataBytes = offlineMessage.getBytes(Charset.forName("UTF-8"));		        
+	        // 调用DesStrat函数进行加密，加密代码为1
+	        byte[] result = des.DesStart(dataBytes, 1);
+	        // 将加密后的byte转化为string传输展示
+	        String atest = Base64.encodeBase64String(result);
+			
+			out.put("msg", atest);
+			out.put("username", outuser.getUserName());
+			SimpleDateFormat dataType = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			String time = dataType.format(new Date()).toString();
+			out.put("time", time);
+			out.put("messageType", "message");
 
 			//Prompt each user to log off
 			for (int j = 0; j < clientList.size(); j++) {
@@ -276,10 +346,15 @@ public class Server extends JFrame {
 	 */
 	public void DisconnectServer() {
 		try {
-			window.addContent("Server: Offline time --> " + new Date() + "\n\n");
+			SimpleDateFormat dataType = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			String outlinetime = dataType.format(new Date()).toString();
+			window.addContent("Server: Offline time --> " + outlinetime + "\n\n");
 			// 打包被踢出的发送消息
 			JSONObject out = new JSONObject();
 			out.put("userlist", usernamelist);
+			out.put("username", "Server");
+			out.put("messageType", "message");
+			out.put("time", outlinetime);
 			out.put("msg", "The server has been stop\n");
 			
 			//Loop the UserList to notify each client server that it is quitting

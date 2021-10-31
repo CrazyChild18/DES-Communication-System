@@ -6,6 +6,8 @@ import javax.swing.SwingConstants;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -20,6 +22,7 @@ import java.awt.BorderLayout;
 import javax.swing.JMenuBar;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import java.awt.Color;
@@ -47,17 +50,22 @@ public class ClientGUI {
 	private JButton broadcast_button;
 	private JTextArea content;
 	private boolean isPrivate = false;
+	private boolean stateHint;
 	private String privateName;
 	private JTextArea beforeEncryptionArea, afterEncryptionArea;
 	private JFileChooser fileDialog; // 文件对话框
-
+	private JMenuItem disconnect_item, connect_item;
+	private JButton send_button, changeKeyButton;
+	private JTextField key_input;
+	private String key;
 
 	/**
 	 * Create the application.
 	 */
-	public ClientGUI(String name, Client c) {
+	public ClientGUI(String name, Client c, String k) {
 		this.client = c;
 		this.username = name;
+		this.key = k;
 		initialize();
 	}
 
@@ -117,11 +125,45 @@ public class ClientGUI {
 			}
 		});
 		
-		JMenu mnNewMenu_1 = new JMenu("Exit Room");
+		JMenu mnNewMenu_1 = new JMenu("Room State");
 		menuBar.add(mnNewMenu_1);
 		
-		JMenuItem exit_item = new JMenuItem("Disconnect");
-		mnNewMenu_1.add(exit_item);
+		disconnect_item = new JMenuItem("Disconnect");
+		mnNewMenu_1.add(disconnect_item);
+		disconnect_item.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(stateHint == true) {
+					client.disconnect();
+					setState(false);
+					cleanUserlist();
+					delSendButton();
+					setContent("You have logged out of the server.\n"
+							+ "If you want to continue chatting, click connect\n\n\n");
+				}else {
+					JOptionPane.showMessageDialog(frmCommunicationSystem, "You are already offline", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+				}
+			}
+		});
+		
+		connect_item = new JMenuItem("Connect");
+		mnNewMenu_1.add(connect_item);
+		connect_item.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(stateHint == false) {
+					int result = client.connect();
+					if(result == 1) {
+						setState(true);
+						delSendButton();
+						showSendButton();
+						setContent("You have connected with the server.\n\n");
+					}
+				}else {
+					JOptionPane.showMessageDialog(frmCommunicationSystem, "You are already online", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+				}
+			}
+		});
 		
 		JMenu mnNewMenu_2 = new JMenu("About");
 		menuBar.add(mnNewMenu_2);
@@ -134,7 +176,7 @@ public class ClientGUI {
 		frmCommunicationSystem.getContentPane().add(panel);
 		panel.setLayout(null);
 		
-		JButton send_button = new JButton("SEND");
+		send_button = new JButton("SEND");
 		send_button.setFont(new Font("Times New Roman", Font.BOLD, 25));
 		send_button.setBackground(new Color(153, 153, 153));
 		send_button.setForeground(new Color(255, 255, 255));
@@ -151,25 +193,31 @@ public class ClientGUI {
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				String msg = text_input.getText().trim();
-				// 判断群聊还是私聊
-				// 调用不同发送函数
-				if(isPrivate == false) {
-					if (!msg.equals("") && !msg.equals("EXIT")) {
-						SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-						String time = data.format(new Date()).toString();
-						setContent("You (" + time + "):\n" + msg + "\n\n");
-					}
-					client.sendBroadcastMessage(msg);
+				// 判断是否填入秘钥
+				if(key.equals("")) {
+					JOptionPane.showMessageDialog(frmCommunicationSystem, "The secret key can't be null!\nPlease enter the same secret key as agreed by the receiver.", "Warning!!!", JOptionPane.ERROR_MESSAGE);
 				}else {
-					if (!msg.equals("") && !msg.equals("EXIT")) {
-						SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-						String time = data.format(new Date()).toString();
-						setContent("You private send to " + privateName + " (" + time + "):\n" + msg + "\n\n");
+					String msg = text_input.getText().trim();
+					setBeforeEncryptionArea(msg);
+					// 判断群聊还是私聊
+					// 调用不同发送函数
+					if(isPrivate == false) {
+						if (!msg.equals("") && !msg.equals("EXIT")) {
+							SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+							String time = data.format(new Date()).toString();
+							setContent("You (" + time + "):\n" + msg + "\n\n");
+						}
+						client.sendBroadcastMessage(msg);
+					}else {
+						if (!msg.equals("") && !msg.equals("EXIT")) {
+							SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+							String time = data.format(new Date()).toString();
+							setContent("You private send to " + privateName + " (" + time + "):\n" + msg + "\n\n");
+						}
+						client.sendPrivateMessage(msg, privateName);
 					}
-					client.sendPrivateMessage(msg, privateName);
+					text_input.setText("");
 				}
-				text_input.setText("");
 			}
 		});
 		
@@ -215,13 +263,13 @@ public class ClientGUI {
 		JLabel lblUsername = new JLabel("Username:");
 		lblUsername.setFont(new Font("Times New Roman", Font.BOLD, 18));
 		lblUsername.setHorizontalAlignment(SwingConstants.CENTER);
-		lblUsername.setBounds(86, 0, 110, 37);
+		lblUsername.setBounds(10, 0, 110, 37);
 		panel_2.add(lblUsername);
 		
 		JLabel lblCurrentState = new JLabel("Current state:");
 		lblCurrentState.setHorizontalAlignment(SwingConstants.CENTER);
 		lblCurrentState.setFont(new Font("Times New Roman", Font.BOLD, 18));
-		lblCurrentState.setBounds(620, 0, 143, 37);
+		lblCurrentState.setBounds(779, 0, 143, 37);
 		panel_2.add(lblCurrentState);
 		
 		username_text = new JTextField(username);
@@ -229,7 +277,7 @@ public class ClientGUI {
 		username_text.setBackground(new Color(153, 153, 153));
 		username_text.setFont(new Font("Times New Roman", Font.BOLD, 18));
 		username_text.setEditable(false);
-		username_text.setBounds(206, 0, 250, 37);
+		username_text.setBounds(119, 0, 210, 37);
 		panel_2.add(username_text);
 		username_text.setColumns(10);
 		
@@ -239,8 +287,46 @@ public class ClientGUI {
 		state_text.setFont(new Font("Times New Roman", Font.BOLD, 16));
 		state_text.setEditable(false);
 		state_text.setColumns(10);
-		state_text.setBounds(773, 0, 148, 37);
+		state_text.setBounds(916, 1, 148, 37);
 		panel_2.add(state_text);
+		
+		JLabel lblKey = new JLabel("Secret key:");
+		lblKey.setForeground(Color.RED);
+		lblKey.setHorizontalAlignment(SwingConstants.CENTER);
+		lblKey.setFont(new Font("Times New Roman", Font.BOLD, 18));
+		lblKey.setBounds(393, 0, 110, 37);
+		panel_2.add(lblKey);
+		
+		key_input = new JTextField(key);
+		key_input.setEditable(false);
+		key_input.setHorizontalAlignment(SwingConstants.CENTER);
+		key_input.setFont(new Font("Times New Roman", Font.BOLD, 16));
+		key_input.setColumns(10);
+		key_input.setBackground(new Color(204, 255, 255));
+		key_input.setBounds(497, 1, 148, 37);
+		panel_2.add(key_input);
+		
+		changeKeyButton = new JButton("Change");
+		changeKeyButton.setForeground(new Color(0, 0, 0));
+		changeKeyButton.setFont(new Font("Times New Roman", Font.BOLD | Font.ITALIC, 12));
+		changeKeyButton.setBackground(new Color(153, 153, 153));
+		changeKeyButton.setBounds(655, 5, 85, 28);
+		panel_2.add(changeKeyButton);
+		changeKeyButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				String result = (String)JOptionPane.showInputDialog(frmCommunicationSystem, "Input new key:", "Change your secret key here",
+						JOptionPane.PLAIN_MESSAGE, null, null, key);
+				if(result != null && result.length() > 0){
+	            	key_input.setText(result);
+	            	key = result;
+	            	client.changeKey(result);
+	            }else {
+	            	key_input.setText(key);
+	            }
+			}
+		});
+		
 		
 		send_to = new JLabel("Currently in Broadcast");
 		send_to.setForeground(new Color(255, 0, 0));
@@ -267,7 +353,7 @@ public class ClientGUI {
 		scrollPane.setViewportView(content);
 		
 		JScrollPane scrollPane_1 = new JScrollPane();
-		scrollPane_1.setBounds(277, 439, 405, 115);
+		scrollPane_1.setBounds(277, 439, 405, 113);
 		frmCommunicationSystem.getContentPane().add(scrollPane_1);
 		
 		beforeEncryptionArea = new JTextArea();
@@ -304,6 +390,14 @@ public class ClientGUI {
 		
 	}
 	
+	public void delSendButton() {
+		send_button.setVisible(false);
+	}
+	
+	public void showSendButton() {
+		send_button.setVisible(true);
+	}
+	
 	public void setBeforeEncryptionArea(String c) {
 		beforeEncryptionArea.setText(c);
 		beforeEncryptionArea.setCaretPosition(0);
@@ -331,6 +425,12 @@ public class ClientGUI {
 		userlist.setModel(model);
 	}
 
+	// 更新服务器中用户列表函数
+	public void cleanUserlist() {
+		DefaultListModel<String> model = new DefaultListModel<>();
+		userlist.setModel(model);
+	}
+	
 	// 点击用户列表执行函数
 	public void getPrivateChatUsername() {
 		send_to.setText("Currently in Private. The receiver is: " + userlist.getSelectedValue());
@@ -356,5 +456,15 @@ public class ClientGUI {
             } catch (IOException exp) {}
         }
 		return 1;
+	}
+
+	public void setState(Boolean state) {
+		if (state) {
+			state_text.setText("Online");
+			stateHint = true;
+		}else {
+			state_text.setText("Offline");
+			stateHint = false;
+		}
 	}
 }
