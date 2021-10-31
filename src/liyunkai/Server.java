@@ -55,13 +55,13 @@ public class Server extends JFrame {
 		window.frame.setVisible(true);
 
 		try {
-			//Create a server socket, bind port 8000
+			// Create a server socket, bind port 8000
 			@SuppressWarnings("resource")
 			ServerSocket serverSocket = new ServerSocket(8080);
-			//Print startup time
+			// Print startup time
 			window.addContent("Server: Startup time --> " + new Date() + "\n\n");
 			
-			//Infinite loop listens for new client connections
+			// Infinite loop listens for new client connections
 			while (true) {
 				//Listen for a new connection
 				Socket socket = serverSocket.accept();
@@ -89,17 +89,9 @@ public class Server extends JFrame {
 				SimpleDateFormat dataType = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 				String time = dataType.format(new Date()).toString();
 				online.put("userlist", usernamelist);
-				String onlineMessage = user.getUserName() + " logged in\n\n";
+				String onlineMessage = "-logged in-";
 				
-				DESAlgorithm des = new DESAlgorithm("7355608");
-		        // 将输入内容转化为byte数组
-		        byte[] dataBytes = onlineMessage.getBytes(Charset.forName("UTF-8"));		        
-		        // 调用DesStrat函数进行加密，加密代码为1
-		        byte[] result = des.DesStart(dataBytes, 1);
-		        // 将加密后的byte转化为string传输展示
-		        String atest = Base64.encodeBase64String(result);
-				
-		        online.put("msg", atest);
+		        online.put("msg", onlineMessage);
 				online.put("username", "Server");
 				online.put("messageType", "message");
 				online.put("time", time);
@@ -181,17 +173,8 @@ public class Server extends JFrame {
 						SimpleDateFormat dataType = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 						String time = dataType.format(new Date()).toString();
 						online.put("userlist", usernamelist);
-						String onlineMessage = user.getUserName() + " logged in";
-						
-						DESAlgorithm des = new DESAlgorithm("7355608");
-				        // 将输入内容转化为byte数组
-				        byte[] dataBytes = onlineMessage.getBytes(Charset.forName("UTF-8"));		        
-				        // 调用DesStrat函数进行加密，加密代码为1
-				        byte[] result = des.DesStart(dataBytes, 1);
-				        // 将加密后的byte转化为string传输展示
-				        String atest = Base64.encodeBase64String(result);
-						
-				        online.put("msg", atest);
+						String onlineMessage = "-logged in-";
+				        online.put("msg", onlineMessage);
 						online.put("username", "Server");
 						online.put("messageType", "message");
 						online.put("time", time);
@@ -218,7 +201,7 @@ public class Server extends JFrame {
 									// 在服务器中记录消息来源
 									window.addClientFromContent("The server receives a message from (" + data.getString("username")+ "), the encrypted content is: " + data.getString("msg") + "\n\n");
 									// 打包消息内容并发送到指定客户端
-									packMsg(i, data.getString("msg"), data);
+									packMsg(i, data.getString("msg"), data, "");
 									// 在服务器中记录消息走向
 									window.addClientToContent("The server forwards the message to the user: " + data.getString("isPrivChat") + "\n\n");
 									i++;
@@ -229,7 +212,7 @@ public class Server extends JFrame {
 									// 在服务器中记录消息来源
 									window.addClientFromContent("The server receives a file from (" + data.getString("username")+ "), the encrypted content is: " + data.getString("msg") + "\n\n");
 									// 打包消息内容并发送到指定客户端
-									packMsg(i, data.getString("msg"), data);
+									packMsg(i, data.getString("msg"), data, data.getString("fileName"));
 									// 在服务器中记录消息走向
 									window.addClientToContent("The server forwards the file to the user: " + data.getString("isPrivChat") + "\n\n");
 									i++;
@@ -257,12 +240,12 @@ public class Server extends JFrame {
 								if(data.getString("messageType").equals("message")) {
 									window.addClientToContent("    " + clientList.get(i).getUserName() + "\n");
 									// 将消息内容打包并转发给客户端
-									packMsg(i, data.getString("msg"), data);
+									packMsg(i, data.getString("msg"), data, "");
 									i++;
 								}else if(data.getString("messageType").equals("file")) {
 									window.addClientToContent("    " + clientList.get(i).getUserName() + "\n");
 									// 将文件信息和标识打包发送给客户端
-									packMsg(i, data.getString("msg"), data);
+									packMsg(i, data.getString("msg"), data, data.getString("fileName"));
 									i++;
 								}
 							}
@@ -277,7 +260,7 @@ public class Server extends JFrame {
 
 		// 对信息内容、时间、发送者进行整理打包
 		// 同时包含服务器在线用户列表，用以同步客户端的列表
-		public void packMsg(int i, String msg, JSONObject data) {
+		public void packMsg(int i, String msg, JSONObject data, String fileName) {
 			SimpleDateFormat dataType = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			String time = dataType.format(new Date()).toString();
 			// packing data 
@@ -289,6 +272,9 @@ public class Server extends JFrame {
 			User user = clientList.get(i);
 			chatMessage.put("username", data.getString("username"));
 			chatMessage.put("messageType", data.getString("messageType"));
+			if(!fileName.equals("")) {
+				chatMessage.put("fileName", fileName);
+			}
 			try {
 				output = new DataOutputStream(user.getSocket().getOutputStream());
 				output.writeUTF(chatMessage.toString());
@@ -311,17 +297,8 @@ public class Server extends JFrame {
 			// Package the outgoing message that goes offline
 			JSONObject out = new JSONObject();
 			out.put("userlist", usernamelist);
-			String offlineMessage = outuser.getUserName() + " exit\n\n";
-			
-			DESAlgorithm des = new DESAlgorithm("7355608");
-	        // 将输入内容转化为byte数组
-	        byte[] dataBytes = offlineMessage.getBytes(Charset.forName("UTF-8"));		        
-	        // 调用DesStrat函数进行加密，加密代码为1
-	        byte[] result = des.DesStart(dataBytes, 1);
-	        // 将加密后的byte转化为string传输展示
-	        String atest = Base64.encodeBase64String(result);
-			
-			out.put("msg", atest);
+			String offlineMessage = "-EXIT-";
+			out.put("msg", offlineMessage);
 			out.put("username", outuser.getUserName());
 			SimpleDateFormat dataType = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			String time = dataType.format(new Date()).toString();
@@ -355,7 +332,7 @@ public class Server extends JFrame {
 			out.put("username", "Server");
 			out.put("messageType", "message");
 			out.put("time", outlinetime);
-			out.put("msg", "The server has been stop\n");
+			out.put("msg", "STOP");
 			
 			//Loop the UserList to notify each client server that it is quitting
 			for (int j = 0; j < clientList.size(); j++) {

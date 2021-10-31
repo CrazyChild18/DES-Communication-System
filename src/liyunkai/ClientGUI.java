@@ -439,23 +439,29 @@ public class ClientGUI {
 		privateName = userlist.getSelectedValue();
 	}
 
-	public int saveFile(String fileContent, String senderName) {
-		int state = fileDialog.showSaveDialog(frmCommunicationSystem);
-        if (state == JFileChooser.APPROVE_OPTION) {
+	public int saveFile(String fileContent, String senderName, String fileName) {
+		JFileChooser jFileChooser = new JFileChooser();
+		jFileChooser.setSelectedFile(new File(fileName));
+		int option = jFileChooser.showSaveDialog(frmCommunicationSystem);
+        if (option == JFileChooser.APPROVE_OPTION) {
             try {
                 // ±£´æÎÄ¼þ
-                File dir = fileDialog.getCurrentDirectory();
-                String name = fileDialog.getSelectedFile().getName();
+                File dir = jFileChooser.getCurrentDirectory();
+                String name = jFileChooser.getSelectedFile().getName();
                 File file = new File(dir, name);
                 FileOutputStream out = new FileOutputStream(file);
                 String codeString = fileContent;
                 byte[] buff = Base64.decodeBase64(codeString);
                 out.write(buff);
                 out.close();
-                content.append("The file from: " + senderName + " has been successfully received\n\n");
-            } catch (IOException exp) {}
-        }
-		return 1;
+                content.append("The file (" + fileName + ") from: " + senderName + " has been successfully received\n\n");
+                return 1;
+            } catch (IOException exp) {
+            	return 0;
+            }
+        }else {
+			return 0;
+		}
 	}
 
 	public void setState(Boolean state) {

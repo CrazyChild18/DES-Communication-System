@@ -78,10 +78,7 @@ public class Client extends JFrame {
  
 	// 群聊发送消息
 	public void sendBroadcastMessage(String msg) {
-		try {
-			
-//			System.out.println("当前秘钥为: " + key);
-			
+		try {			
 			//Set the date format
 			SimpleDateFormat data = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			String time = data.format(new Date()).toString();
@@ -89,7 +86,7 @@ public class Client extends JFrame {
 			// Do message processing
 			if (msg.equals("")) {
 				// Prompt sending message cannot be null given
-				JOptionPane.showMessageDialog(null, "The message can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(window.frmCommunicationSystem, "The message can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
 			}else if(msg.equals("EXIT")) {
 				// Package the data into JSON format
 				JSONObject data_send = new JSONObject();
@@ -137,7 +134,7 @@ public class Client extends JFrame {
  
 			if (msg.equals("")) {
 				//Prompt sending message cannot be null given
-				JOptionPane.showMessageDialog(null, "The message can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(window.frmCommunicationSystem, "The message can't be null", "Warning!!!", JOptionPane.ERROR_MESSAGE);
 			}else if(msg.equals("EXIT")) {
 				//Package the data into JSON format
 				JSONObject data_send = new JSONObject();
@@ -195,6 +192,7 @@ public class Client extends JFrame {
 			data_send.put("username", username);
 			data_send.put("msg", atest);
 			data_send.put("time", time);
+			data_send.put("fileName", filename);
 			data_send.put("messageType", "file");
 			data_send.put("isPrivChat", "");  // set isPrivChat to null
 			message_to_Server.writeUTF(data_send.toString());
@@ -221,6 +219,7 @@ public class Client extends JFrame {
 			data_send.put("username", username);
 			data_send.put("msg", atest);
 			data_send.put("time", time);
+			data_send.put("fileName", filename);
 			data_send.put("messageType", "file");
 			data_send.put("isPrivChat", recivername);  // set isPrivChat to null
 			message_to_Server.writeUTF(data_send.toString());
@@ -309,23 +308,34 @@ public class Client extends JFrame {
 							        // 调用DesEncrypt函数进行加密，解密代码为0
 							        byte[] decode_text_byte = des.DesStart(dataBytes, 0);
 							        String decode_textString = new String(decode_text_byte, "utf-8");
-									window.saveFile(decode_textString, data.getString("username"));
+									window.saveFile(decode_textString, data.getString("username"), data.getString("fileName"));
 								}else {
 									window.setContent("You have rejected file sharing from: " + data.getString("username") + "\n\n");
 								}
 							}
 						}else {
 							// 普通消息
-							if(!data.getString("username").equals(username)) {
-								DESAlgorithm des = new DESAlgorithm(key);
-						        // 将输入内容转化为byte数组
-						        byte[] dataBytes = Base64.decodeBase64(mString);
-						        // 调用DesEncrypt函数进行加密，解密代码为0
-						        byte[] decode_text_byte = des.DesStart(dataBytes, 0);
-						        String decode_textString = new String(decode_text_byte, "utf-8");
-								String outputInScreen = data.getString("username") + " (" + data.getString("time") + "):\n"
-										+ decode_textString;
-								window.setContent(outputInScreen + "\n\n");
+							if(mString.equals("-logged in-")) { // 服务器转发上线消息
+								String outputInScreen = data.getString("username") + " (" + data.getString("time") + "): " + "Welcome the new user who join the server\n\n";
+								window.setContent(outputInScreen);
+							}else if(mString.equals("-EXIT-")) { // 服务器转发下线消息
+								String outputInScreen = data.getString("username") + " (" + data.getString("time") + "): " + "offline\n\n";
+								window.setContent(outputInScreen);
+							}else if(mString.equals("-STOP-")) { // 服务器退出消息
+								String outputInScreen = data.getString("username") + " (" + data.getString("time") + "): " + "server shut down\n\n";
+								window.setContent(outputInScreen);
+							}else {
+								if(!data.getString("username").equals(username)) {
+									DESAlgorithm des = new DESAlgorithm(key);
+							        // 将输入内容转化为byte数组
+							        byte[] dataBytes = Base64.decodeBase64(mString);
+							        // 调用DesEncrypt函数进行加密，解密代码为0
+							        byte[] decode_text_byte = des.DesStart(dataBytes, 0);
+							        String decode_textString = new String(decode_text_byte, "utf-8");
+									String outputInScreen = data.getString("username") + " (" + data.getString("time") + "):\n"
+											+ decode_textString;
+									window.setContent(outputInScreen + "\n\n");
+								}
 							}
 						}
 						// Refresh the user list
